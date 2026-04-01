@@ -35,11 +35,9 @@ export default function App() {
     try {
       // 1. Generate trace context
       const { data: traceData, error: traceError } = await supabase.rpc('generate_trace_context', {
-        input_payload: {
-          headers: {
-            source_system: 'approval-authority-editor',
-            tenant_id: auth.tenantId,
-          }
+        headers: {
+          source_system: 'approval-authority-editor',
+          tenant_id: auth.tenantId,
         }
       });
       if (traceError) throw traceError;
