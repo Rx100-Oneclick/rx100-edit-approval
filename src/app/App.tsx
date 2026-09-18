@@ -1,12 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { Info, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { useEditApprovalDataClient } from '@/microapp/runtime';
+import { reportError, track } from '@/microapp/telemetry';
 import { useAuthFromParent } from './hooks/useAuthFromParent';
 import { useApprovalData, StepData } from './hooks/useApprovalData';
 import SuccessAnimation from './components/SuccessAnimation';
 
 export default function App() {
   const auth = useAuthFromParent();
+  const { client } = useEditApprovalDataClient();
   const { template, steps, setSteps, versionId, isLoading, error, hasChanges, resetOriginal, refetch } = useApprovalData(auth.templateId, auth.isAuthenticated);
 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -29,12 +31,12 @@ export default function App() {
   }, [steps, setSteps]);
 
   const handleSave = useCallback(async () => {
-    if (!hasChanges() || isSaving) return;
+    if (!hasChanges() || isSaving || !client) return;
     setIsSaving(true);
 
     try {
       // 1. Generate trace context
-      const { data: traceData, error: traceError } = await supabase.rpc('generate_trace_context', {
+      const { data: traceData, error: traceError } = await client.rpc('generate_trace_context', {
         headers: {
           source_system: 'approval-authority-editor',
           tenant_id: auth.tenantId,
@@ -47,7 +49,7 @@ export default function App() {
 
       // 2. Update step_order for each changed step
       const updatePromises = steps.map(step =>
-        supabase
+        client
           .from('approval_template_steps')
           .update({ step_order: step.step_order, updated_at: new Date().toISOString() })
           .eq('step_id', step.step_id)
@@ -57,7 +59,7 @@ export default function App() {
       if (updateError?.error) throw updateError.error;
 
       // 3. Write audit event
-      const { error: auditError } = await supabase.rpc('audit_event_intake', {
+      const { error: auditError } = await client.rpc('audit_event_intake', {
         input_payload: {
           headers: {
             trace_id: traceContext?.trace_id,
@@ -89,8 +91,10 @@ export default function App() {
 
       // 4. Show success
       resetOriginal();
+      track(auth.bridge, 'edit_approval.saved', { template_id: auth.templateId });
       setShowSuccess(true);
     } catch (err: any) {
+      reportError(auth.bridge, 'edit_approval.save_failed', err, { template_id: auth.templateId });
       console.error('Save failed:', err);
       alert('Failed to save changes: ' + (err.message || 'Unknown error'));
     } finally {
@@ -100,20 +104,20 @@ export default function App() {
 
   const handleSuccessComplete = useCallback(() => {
     setShowSuccess(false);
-    window.parent.postMessage({ type: 'SAVE_COMPLETE', template_id: auth.templateId }, '*');
+    auth.bridge?.events.emit('edit-approval.close', { action: 'saved', template_id: auth.templateId });
   }, [auth.templateId]);
 
   const handleCancel = useCallback(() => {
     if (hasChanges()) {
       setShowCancelConfirm(true);
     } else {
-      window.parent.postMessage({ type: 'CANCEL', template_id: auth.templateId }, '*');
+      auth.bridge?.events.emit('edit-approval.close', { action: 'cancel', template_id: auth.templateId });
     }
   }, [hasChanges, auth.templateId]);
 
   const confirmCancel = useCallback(() => {
     setShowCancelConfirm(false);
-    window.parent.postMessage({ type: 'CANCEL', template_id: auth.templateId }, '*');
+    auth.bridge?.events.emit('edit-approval.close', { action: 'cancel', template_id: auth.templateId });
   }, [auth.templateId]);
 
   const getInitials = (name: string) => {
