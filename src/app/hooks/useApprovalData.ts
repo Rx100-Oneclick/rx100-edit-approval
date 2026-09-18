@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from "react";
+import { useEditApprovalDataClient } from "@/microapp/runtime";
 
 interface TemplateDetails {
   approval_template_name: string;
@@ -26,6 +26,7 @@ interface ApprovalData {
 }
 
 export function useApprovalData(templateId: string, isAuthenticated: boolean) {
+  const { client, error: clientError } = useEditApprovalDataClient();
   const [data, setData] = useState<ApprovalData>({
     template: null,
     steps: [],
@@ -36,46 +37,43 @@ export function useApprovalData(templateId: string, isAuthenticated: boolean) {
   });
 
   const fetchData = useCallback(async () => {
-    if (!templateId || !isAuthenticated) return;
+    if (!templateId || !isAuthenticated || !client) return;
 
     try {
-      setData(prev => ({ ...prev, isLoading: true, error: null }));
+      setData((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      // Fetch template details
-      const { data: templateData, error: templateError } = await supabase
-        .from('approval_templates')
-        .select('approval_template_name, approval_type, description')
-        .eq('template_id', templateId)
+      const { data: templateData, error: templateError } = await client
+        .from("approval_templates")
+        .select("approval_template_name, approval_type, description")
+        .eq("template_id", templateId)
         .single();
 
       if (templateError) throw templateError;
 
-      // Fetch draft version
-      const { data: versionData, error: versionError } = await supabase
-        .from('approval_template_versions')
-        .select('version_id')
-        .eq('template_id', templateId)
-        .eq('status', 'DRAFT')
-        .eq('is_active', false)
-        .order('created_at', { ascending: false })
+      const { data: versionData, error: versionError } = await client
+        .from("approval_template_versions")
+        .select("version_id")
+        .eq("template_id", templateId)
+        .eq("status", "DRAFT")
+        .eq("is_active", false)
+        .order("created_at", { ascending: false })
         .limit(1)
         .single();
 
       if (versionError) throw versionError;
 
-      // Fetch steps
-      const { data: stepsData, error: stepsError } = await supabase
-        .from('approval_template_steps')
-        .select('step_id, step_order, name, email, user_id, version_id')
-        .eq('version_id', versionData.version_id)
-        .order('step_order', { ascending: true });
+      const { data: stepsData, error: stepsError } = await client
+        .from("approval_template_steps")
+        .select("step_id, step_order, name, email, user_id, version_id")
+        .eq("version_id", versionData.version_id)
+        .order("step_order", { ascending: true });
 
       if (stepsError) throw stepsError;
 
       const steps = (stepsData || []) as StepData[];
 
       setData({
-        template: templateData,
+        template: templateData as TemplateDetails,
         steps,
         originalSteps: JSON.parse(JSON.stringify(steps)),
         versionId: versionData.version_id,
@@ -83,24 +81,38 @@ export function useApprovalData(templateId: string, isAuthenticated: boolean) {
         error: null,
       });
     } catch (err: any) {
-      setData(prev => ({ ...prev, isLoading: false, error: err.message || 'Failed to fetch data' }));
+      setData((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err.message || "Failed to fetch data",
+      }));
     }
-  }, [templateId, isAuthenticated]);
+  }, [client, templateId, isAuthenticated]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (clientError) {
+      setData((prev) => ({ ...prev, isLoading: false, error: clientError.message }));
+      return;
+    }
+    void fetchData();
+  }, [fetchData, clientError]);
 
   const setSteps = (newSteps: StepData[]) => {
-    setData(prev => ({ ...prev, steps: newSteps }));
+    setData((prev) => ({ ...prev, steps: newSteps }));
   };
 
   const resetOriginal = () => {
-    setData(prev => ({ ...prev, originalSteps: JSON.parse(JSON.stringify(prev.steps)) }));
+    setData((prev) => ({
+      ...prev,
+      originalSteps: JSON.parse(JSON.stringify(prev.steps)),
+    }));
   };
 
   const hasChanges = () => {
-    return JSON.stringify(data.steps.map(s => s.step_id)) !== JSON.stringify(data.originalSteps.map(s => s.step_id));
+    return (
+      JSON.stringify(data.steps.map((s) => s.step_id)) !==
+      JSON.stringify(data.originalSteps.map((s) => s.step_id))
+    );
   };
 
   return { ...data, setSteps, resetOriginal, hasChanges, refetch: fetchData };
