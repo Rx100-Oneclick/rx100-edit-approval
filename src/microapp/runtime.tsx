@@ -9,7 +9,6 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { XOOSMicroappBridge } from "@xoos/contracts";
 import { createXOOSSupabaseClient } from "@xoos/data-client";
-import { supabase as previewSupabase } from "@/integrations/supabase/client";
 
 interface RuntimeValue {
   bridge: XOOSMicroappBridge;
@@ -43,9 +42,10 @@ export function useXoRuntime() {
 
   return useMemo(() => {
     if (runtime) {
-      const runtimeUser = runtime.bridge.context.user as typeof runtime.bridge.context.user & {
-        email?: string | null;
-      };
+      const runtimeUser = runtime.bridge.context.user as
+        typeof runtime.bridge.context.user & {
+          email?: string | null;
+        };
 
       return {
         bridge: runtime.bridge,
@@ -53,7 +53,9 @@ export function useXoRuntime() {
         userId: runtime.bridge.context.user.id,
         email:
           runtimeUser.email ??
-          (typeof runtime.props.email === "string" ? runtime.props.email : ""),
+          (typeof runtime.props.email === "string"
+            ? runtime.props.email
+            : ""),
         tenantId: runtime.bridge.context.tenant.id,
         templateId:
           typeof runtime.props.templateId === "string"
@@ -62,7 +64,8 @@ export function useXoRuntime() {
               ? runtime.props.template_id
               : "",
         scopes: runtime.bridge.context.scopes,
-        hasScope: (scope: string) => runtime.bridge.context.scopes.includes(scope),
+        hasScope: (scope: string) =>
+          runtime.bridge.context.scopes.includes(scope),
         isRuntimeHosted: true,
       };
     }
@@ -71,13 +74,17 @@ export function useXoRuntime() {
       bridge: null,
       props: {},
       userId:
-        (import.meta.env.VITE_XOOS_PREVIEW_USER_ID as string | undefined)?.trim() || "",
+        (import.meta.env.VITE_XOOS_PREVIEW_USER_ID as string | undefined)
+          ?.trim() || "",
       email:
-        (import.meta.env.VITE_XOOS_PREVIEW_EMAIL as string | undefined)?.trim() || "",
+        (import.meta.env.VITE_XOOS_PREVIEW_EMAIL as string | undefined)
+          ?.trim() || "",
       tenantId:
-        (import.meta.env.VITE_XOOS_PREVIEW_TENANT_ID as string | undefined)?.trim() || "",
+        (import.meta.env.VITE_XOOS_PREVIEW_TENANT_ID as string | undefined)
+          ?.trim() || "",
       templateId:
-        (import.meta.env.VITE_XOOS_PREVIEW_TEMPLATE_ID as string | undefined)?.trim() || "",
+        (import.meta.env.VITE_XOOS_PREVIEW_TEMPLATE_ID as string | undefined)
+          ?.trim() || "",
       scopes: [] as string[],
       hasScope: () => false,
       isRuntimeHosted: false,
@@ -85,11 +92,20 @@ export function useXoRuntime() {
   }, [runtime]);
 }
 
-const clientCache = new WeakMap<XOOSMicroappBridge, Map<string, Promise<SupabaseClient>>>();
+const clientCache = new WeakMap<
+  XOOSMicroappBridge,
+  Map<string, Promise<SupabaseClient>>
+>();
 
-function resolveDatasourceKey(props: Record<string, unknown>): string {
+function resolveDatasourceKey(
+  props: Record<string, unknown>,
+): string {
   const supplied =
-    typeof props.datasourceKey === "string" ? props.datasourceKey.trim() : "";
+    typeof props.datasourceKey === "string"
+      ? props.datasourceKey.trim()
+      : typeof props.datasource_key === "string"
+        ? props.datasource_key.trim()
+        : "";
 
   if (supplied) return supplied;
 
@@ -105,17 +121,20 @@ async function getRuntimeClient(
   const datasourceKey = resolveDatasourceKey(props);
 
   let bridgeClients = clientCache.get(bridge);
+
   if (!bridgeClients) {
     bridgeClients = new Map();
     clientCache.set(bridge, bridgeClients);
   }
 
   let cached = bridgeClients.get(datasourceKey);
+
   if (!cached) {
     cached = createXOOSSupabaseClient({
       projectKey: datasourceKey,
       bridge: bridge.data,
     });
+
     bridgeClients.set(datasourceKey, cached);
   }
 
@@ -124,31 +143,69 @@ async function getRuntimeClient(
 
 export function useEditApprovalDataClient() {
   const runtime = useOptionalBridgeRuntime();
-  const [client, setClient] = useState<SupabaseClient | null>(
-    runtime ? null : previewSupabase,
-  );
-  const [error, setError] = useState<Error | null>(null);
+
+  const [client, setClient] =
+    useState<SupabaseClient | null>(null);
+
+  const [error, setError] =
+    useState<Error | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    setClient(null);
     setError(null);
 
     if (!runtime) {
-      setClient(previewSupabase);
+      if (import.meta.env.MODE === "xoos-microapp") {
+        setError(
+          new Error(
+            "XOOS Runtime bridge is required for the Native ESM microapp.",
+          ),
+        );
+
+        return () => {
+          cancelled = true;
+        };
+      }
+
+      import("@/integrations/supabase/client")
+        .then(({ supabase }) => {
+          if (!cancelled) {
+            setClient(supabase);
+          }
+        })
+        .catch((reason) => {
+          if (!cancelled) {
+            setError(
+              reason instanceof Error
+                ? reason
+                : new Error(String(reason)),
+            );
+          }
+        });
+
       return () => {
         cancelled = true;
       };
     }
 
-    setClient(null);
-
-    getRuntimeClient(runtime.bridge, runtime.props)
+    getRuntimeClient(
+      runtime.bridge,
+      runtime.props,
+    )
       .then((resolved) => {
-        if (!cancelled) setClient(resolved);
+        if (!cancelled) {
+          setClient(resolved);
+        }
       })
       .catch((reason) => {
         if (!cancelled) {
-          setError(reason instanceof Error ? reason : new Error(String(reason)));
+          setError(
+            reason instanceof Error
+              ? reason
+              : new Error(String(reason)),
+          );
         }
       });
 
@@ -157,5 +214,9 @@ export function useEditApprovalDataClient() {
     };
   }, [runtime]);
 
-  return { client, error, isReady: !!client };
+  return {
+    client,
+    error,
+    isReady: Boolean(client),
+  };
 }
