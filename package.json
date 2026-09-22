@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:microapp": "vite build --config vite.microapp.config.ts"
+    "build:microapp": "vite build --config vite.microapp.config.ts --mode xoos-microapp"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
