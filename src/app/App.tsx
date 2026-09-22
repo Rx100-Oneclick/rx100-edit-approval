@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Info, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { Info, ChevronUp, ChevronDown, Loader2 } from './components/XoosIcons';
 import { useEditApprovalDataClient } from '@/microapp/runtime';
 import { reportError, track } from '@/microapp/telemetry';
 import { useAuthFromParent } from './hooks/useAuthFromParent';
