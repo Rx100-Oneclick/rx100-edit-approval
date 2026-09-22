@@ -3,14 +3,17 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { microappConfig } from "./microapp.config";
 
+const DEFAULT_ENTRY = "./xoos-microapp.js";
+
 function xoosManifestPlugin(): Plugin {
   return {
     name: "xoos-manifest",
+
     generateBundle() {
       const resolvedEntry =
         process.env.XOOS_MICROAPP_ENTRY?.trim() ||
         microappConfig.entry?.trim() ||
-        "./xoos-microapp.js";
+        DEFAULT_ENTRY;
 
       this.emitFile({
         type: "asset",
@@ -24,7 +27,8 @@ function xoosManifestPlugin(): Plugin {
               elementName: microappConfig.elementName,
               entry: resolvedEntry,
               contractVersion: microappConfig.contractVersion,
-              minimumRuntimeVersion: microappConfig.minimumRuntimeVersion,
+              minimumRuntimeVersion:
+                microappConfig.minimumRuntimeVersion,
             },
             null,
             2,
@@ -35,24 +39,48 @@ function xoosManifestPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), xoosManifestPlugin()],
+  plugins: [
+    react(),
+    xoosManifestPlugin(),
+  ],
+
+  publicDir: false,
+
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+
+    dedupe: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+    ],
   },
+
   define: {
     "process.env.NODE_ENV": JSON.stringify("production"),
   },
+
   build: {
     outDir: "dist-microapp",
     emptyOutDir: true,
+    sourcemap: false,
     target: "es2020",
+
     lib: {
-      entry: path.resolve(__dirname, "src/microapp/entry.ts"),
+      entry: path.resolve(
+        __dirname,
+        "src/microapp/entry.ts",
+      ),
       formats: ["es"],
       fileName: () => "xoos-microapp.js",
     },
+
     rollupOptions: {
-      output: { inlineDynamicImports: true },
+      output: {
+        inlineDynamicImports: true,
+      },
     },
   },
 });
