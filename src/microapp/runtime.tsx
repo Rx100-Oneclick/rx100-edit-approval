@@ -105,6 +105,15 @@ export function useXoRuntime() {
   }, [runtime]);
 }
 
+export async function returnToParentMicroapp(
+  bridge: XOOSMicroappBridge | null,
+  parentMicroappKey: string,
+  navigationTarget: HTMLElement | null,
+): Promise<void> {
+  if (!bridge || !navigationTarget) return;
+  await bridge.navigation.navigate(parentMicroappKey, navigationTarget);
+}
+
 const clientCache = new WeakMap<
   XOOSMicroappBridge,
   Map<string, Promise<SupabaseClient>>
