@@ -1,3 +1,14 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+
+:host {
+  display: block;
+  min-height: 100%;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+[data-xoos-microapp] {
+  min-height: 100%;
+}
