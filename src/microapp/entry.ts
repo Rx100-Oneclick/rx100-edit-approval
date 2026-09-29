@@ -15,6 +15,7 @@ export class XoosEditApprovalElement
 
   private root: Root | null = null;
   private mountPoint: HTMLDivElement | null = null;
+  private portalRoot: HTMLDivElement | null = null;
 
   connectedCallback() {
     if (this.root) return;
@@ -31,6 +32,11 @@ export class XoosEditApprovalElement
     shadow.appendChild(mount);
     this.mountPoint = mount;
 
+    const portalRoot = document.createElement("div");
+    portalRoot.setAttribute("data-xoos-portal-root", microappConfig.microappKey);
+    shadow.appendChild(portalRoot);
+    this.portalRoot = portalRoot;
+
     if (!this.xoos) {
       mount.textContent = "XOOS runtime bridge missing.";
       return;
@@ -41,6 +47,8 @@ export class XoosEditApprovalElement
       createElement(BridgeProvider, {
         bridge: this.xoos,
         props: this.xoosProps ?? {},
+        portalRoot,
+        navigationTarget: this.parentElement,
         children: createElement(App),
       }),
     );
@@ -51,6 +59,8 @@ export class XoosEditApprovalElement
     this.root = null;
     this.mountPoint?.remove();
     this.mountPoint = null;
+    this.portalRoot?.remove();
+    this.portalRoot = null;
   }
 }
 

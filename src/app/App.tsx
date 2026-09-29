@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Info, ChevronUp, ChevronDown, Loader2 } from './components/XoosIcons';
-import { useEditApprovalDataClient } from '@/microapp/runtime';
+import { returnToParentMicroapp, useEditApprovalDataClient, useXoRuntime } from '@/microapp/runtime';
 import { reportError, track } from '@/microapp/telemetry';
 import { useAuthFromParent } from './hooks/useAuthFromParent';
 import { useApprovalData, StepData } from './hooks/useApprovalData';
@@ -9,6 +9,7 @@ import SuccessAnimation from './components/SuccessAnimation';
 export default function App() {
   const auth = useAuthFromParent();
   const { client } = useEditApprovalDataClient();
+  const { navigationTarget } = useXoRuntime();
   const { template, steps, setSteps, versionId, isLoading, error, hasChanges, resetOriginal, refetch } = useApprovalData(auth.templateId, auth.isAuthenticated);
 
   const [showSuccess, setShowSuccess] = useState(false);
@@ -105,6 +106,11 @@ export default function App() {
   const handleSuccessComplete = useCallback(() => {
     setShowSuccess(false);
     auth.bridge?.events.emit('edit-approval.close', { action: 'saved', template_id: auth.templateId });
+    void returnToParentMicroapp(
+      auth.bridge,
+      'approval-workflow-mgmt',
+      navigationTarget,
+    );
   }, [auth.templateId]);
 
   const handleCancel = useCallback(() => {
@@ -112,12 +118,22 @@ export default function App() {
       setShowCancelConfirm(true);
     } else {
       auth.bridge?.events.emit('edit-approval.close', { action: 'cancel', template_id: auth.templateId });
+      void returnToParentMicroapp(
+        auth.bridge,
+        'approval-workflow-mgmt',
+        navigationTarget,
+      );
     }
   }, [hasChanges, auth.templateId]);
 
   const confirmCancel = useCallback(() => {
     setShowCancelConfirm(false);
     auth.bridge?.events.emit('edit-approval.close', { action: 'cancel', template_id: auth.templateId });
+      void returnToParentMicroapp(
+        auth.bridge,
+        'approval-workflow-mgmt',
+        navigationTarget,
+      );
   }, [auth.templateId]);
 
   const getInitials = (name: string) => {
