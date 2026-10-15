@@ -1,9 +1,14 @@
 {
   "schemaVersion": "1",
   "microappKey": "edit-approval",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "elementName": "xoos-edit-approval",
-  "entry": "https://bolngokjtpjomleifuto.supabase.co/storage/v1/object/public/xoos-microapps/xoos-edit-approval/1.0.2/xoos-microapp.js",
+  "entry": "xoos-microapp.js",
+  "deliveryType": "native_esm",
   "contractVersion": "1",
-  "minimumRuntimeVersion": "1.0.0"
+  "minimumRuntimeVersion": "1.0.0",
+  "integrity": {
+    "algorithm": "sha256",
+    "value": "1e88305d35610c325da1067a69d780893e456d2d7438a60f078f0aa538e8235b"
+  }
 }

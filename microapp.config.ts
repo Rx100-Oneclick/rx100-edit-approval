@@ -1,7 +1,7 @@
 export const microappConfig = {
   schemaVersion: "1",
   microappKey: "edit-approval",
-  version: "1.0.2",
+  version: "1.0.3",
   elementName: "xoos-edit-approval",
   deliveryType: "native_esm",
   contractVersion: "1",
