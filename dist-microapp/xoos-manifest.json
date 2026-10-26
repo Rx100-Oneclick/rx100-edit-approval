@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "microappKey": "edit-approval",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "elementName": "xoos-edit-approval",
   "entry": "xoos-microapp.js",
   "deliveryType": "native_esm",
@@ -9,6 +9,6 @@
   "minimumRuntimeVersion": "1.0.0",
   "integrity": {
     "algorithm": "sha256",
-    "value": "1e88305d35610c325da1067a69d780893e456d2d7438a60f078f0aa538e8235b"
+    "value": "673312bfce233ec077ae97e6a14a3c863088eef24d52bdad9880a94a40e6feae"
   }
 }
