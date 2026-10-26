@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from 'react';
+import { useXOOSPermissions } from '@xoos/microapp-adapter';
+import { toast } from 'sonner';
 import { Info, ChevronUp, ChevronDown, Loader2 } from './components/XoosIcons';
 import { returnToParentMicroapp, useEditApprovalDataClient, useXoRuntime } from '@/microapp/runtime';
 import { reportError, track } from '@/microapp/telemetry';
@@ -8,6 +10,7 @@ import SuccessAnimation from './components/SuccessAnimation';
 
 export default function App() {
   const auth = useAuthFromParent();
+  const permissions = useXOOSPermissions();
   const { client } = useEditApprovalDataClient();
   const { navigationTarget } = useXoRuntime();
   const { template, steps, setSteps, versionId, isLoading, error, hasChanges, resetOriginal, refetch } = useApprovalData(auth.templateId, auth.isAuthenticated);
@@ -32,6 +35,12 @@ export default function App() {
   }, [steps, setSteps]);
 
   const handleSave = useCallback(async () => {
+    if (!permissions.can("UPDATE")) {
+      toast.error("You don't have permission to update this record.");
+      return;
+    }
+    permissions.require("UPDATE");
+
     if (!hasChanges() || isSaving || !client) return;
     setIsSaving(true);
 
@@ -97,11 +106,19 @@ export default function App() {
     } catch (err: any) {
       reportError(auth.bridge, 'edit_approval.save_failed', err, { template_id: auth.templateId });
       console.error('Save failed:', err);
-      alert('Failed to save changes: ' + (err.message || 'Unknown error'));
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: unknown }).code ?? '')
+          : '';
+      if (code === '42501') {
+        toast.error("Your permission to perform this action is no longer available.");
+      } else {
+        toast.error('Failed to save changes: ' + (err.message || 'Unknown error'));
+      }
     } finally {
       setIsSaving(false);
     }
-  }, [hasChanges, isSaving, steps, auth, versionId, resetOriginal]);
+  }, [permissions, hasChanges, isSaving, client, steps, auth, versionId, resetOriginal]);
 
   const handleSuccessComplete = useCallback(() => {
     setShowSuccess(false);
