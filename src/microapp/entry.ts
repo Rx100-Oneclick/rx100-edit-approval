@@ -1,72 +1,55 @@
-import { createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import type { XOOSMicroappBridge, XOOSMicroappElement } from "@xoos/contracts";
+import { createElement, Fragment } from "react";
+import { Toaster } from "sonner";
+import {
+  defineXOOSMicroapp,
+  useXOOS,
+  useXOOSPortalRoot,
+} from "@xoos/microapp-adapter";
 import styles from "@/styles/index.css?inline";
 import App from "@/app/App";
 import { BridgeProvider } from "./runtime";
 import { microappConfig } from "../../microapp.config";
 
-export class XoosEditApprovalElement
-  extends HTMLElement
-  implements XOOSMicroappElement
-{
-  xoos?: XOOSMicroappBridge;
-  xoosProps?: Record<string, unknown>;
+function resolveNavigationTarget(portalRoot: HTMLElement | null): HTMLElement | null {
+  if (!portalRoot) return null;
 
-  private root: Root | null = null;
-  private mountPoint: HTMLDivElement | null = null;
-  private portalRoot: HTMLDivElement | null = null;
-
-  connectedCallback() {
-    if (this.root) return;
-
-    const shadow = this.shadowRoot ?? this.attachShadow({ mode: "open" });
-
-    const styleElement = document.createElement("style");
-    styleElement.textContent = styles;
-    shadow.appendChild(styleElement);
-
-    const mount = document.createElement("div");
-    mount.setAttribute("data-xoos-microapp", microappConfig.microappKey);
-    mount.style.display = "contents";
-    shadow.appendChild(mount);
-    this.mountPoint = mount;
-
-    const portalRoot = document.createElement("div");
-    portalRoot.setAttribute("data-xoos-portal-root", microappConfig.microappKey);
-    shadow.appendChild(portalRoot);
-    this.portalRoot = portalRoot;
-
-    if (!this.xoos) {
-      mount.textContent = "XOOS runtime bridge missing.";
-      return;
-    }
-
-    this.root = createRoot(mount);
-    this.root.render(
-      createElement(BridgeProvider, {
-        bridge: this.xoos,
-        props: this.xoosProps ?? {},
-        portalRoot,
-        navigationTarget: this.parentElement,
-        children: createElement(App),
-      }),
-    );
+  const rootNode = portalRoot.getRootNode();
+  if (rootNode instanceof ShadowRoot && rootNode.host instanceof HTMLElement) {
+    return rootNode.host.parentElement;
   }
 
-  disconnectedCallback() {
-    this.root?.unmount();
-    this.root = null;
-    this.mountPoint?.remove();
-    this.mountPoint = null;
-    this.portalRoot?.remove();
-    this.portalRoot = null;
-  }
+  return null;
 }
 
-if (!customElements.get(microappConfig.elementName)) {
-  customElements.define(microappConfig.elementName, XoosEditApprovalElement);
+function EditApprovalAdapterRoot(props: Record<string, unknown>) {
+  const bridge = useXOOS();
+  const portalRoot = useXOOSPortalRoot();
+  const navigationTarget = resolveNavigationTarget(portalRoot);
+
+  return createElement(
+    BridgeProvider,
+    {
+      bridge,
+      props,
+      portalRoot,
+      navigationTarget,
+    },
+    createElement(
+      Fragment,
+      null,
+      createElement(App),
+      createElement(Toaster, { position: "top-right", richColors: true }),
+    ),
+  );
 }
+
+defineXOOSMicroapp({
+  id: microappConfig.microappKey,
+  element: microappConfig.elementName,
+  App: EditApprovalAdapterRoot,
+  styles,
+  shadowDom: true,
+});
 
 export { microappConfig };
-export default XoosEditApprovalElement;
+export default EditApprovalAdapterRoot;
